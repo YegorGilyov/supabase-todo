@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
 import type { Todo, NewTodo } from '../types/todo';
-import { TodoService } from '../services/TodoService';
+import { todoService } from '../services/TodoService';
 import { useAuth } from './useAuth';
-import { RealtimeChannel } from '@supabase/supabase-js';
 
 export function useTodos() {
   const [todos, setTodos] = useState<Todo[]>([]);
@@ -11,7 +10,7 @@ export function useTodos() {
   const { user } = useAuth();
 
   useEffect(() => {
-    setLoading(true); // Set loading to true whenever user changes
+    setLoading(true);
     
     if (!user) {
       setTodos([]);
@@ -19,58 +18,20 @@ export function useTodos() {
       return;
     }
 
-    let subscription: RealtimeChannel | undefined;
-    
-    const setupSubscription = async () => {
-      try {
-        subscription = await TodoService.subscribeToTodos({
-          onAdd: (newTodo) => {
-            setTodos(prev => [newTodo, ...prev]);
-          },
-          onUpdate: (updatedTodo) => {
-            setTodos(prev => prev.map(todo => 
-              todo.id === updatedTodo.id ? updatedTodo : todo
-            ));
-          },
-          onDelete: (deletedId) => {
-            setTodos(prev => prev.filter(todo => todo.id !== deletedId));
-          }
-        });
-      } catch (error) {
-        console.error('Error setting up real-time subscription:', error);
-        setError(error instanceof Error ? error.message : 'Failed to setup real-time updates');
-      }
-    };
-
-    // Load todos first, then set up subscription
-    loadTodos().then(() => {
-      setupSubscription();
-    });
+    const unsubscribe = todoService.subscribe((newTodos) => {
+      setTodos(newTodos);
+      setLoading(false);
+    }, user.id);
 
     return () => {
-      if (subscription) {
-        subscription.unsubscribe();
-      }
+      unsubscribe();
     };
   }, [user]);
-
-  const loadTodos = async () => {
-    try {
-      setError(null);
-      const data = await TodoService.getTodos();
-      setTodos(data);
-    } catch (error) {
-      setError(error instanceof Error ? error.message : 'Failed to load todos');
-      console.error('Error loading todos:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const addTodo = async (todo: NewTodo) => {
     try {
       setError(null);
-      await TodoService.addTodo(todo);
+      await todoService.addTodo(todo);
     } catch (error) {
       setError(error instanceof Error ? error.message : 'Failed to add todo');
       throw error;
@@ -80,7 +41,7 @@ export function useTodos() {
   const updateTodo = async (id: string, updates: Partial<Todo>) => {
     try {
       setError(null);
-      await TodoService.updateTodo(id, updates);
+      await todoService.updateTodo(id, updates);
     } catch (error) {
       setError(error instanceof Error ? error.message : 'Failed to update todo');
       throw error;
@@ -90,7 +51,7 @@ export function useTodos() {
   const deleteTodo = async (id: string) => {
     try {
       setError(null);
-      await TodoService.deleteTodo(id);
+      await todoService.deleteTodo(id);
     } catch (error) {
       setError(error instanceof Error ? error.message : 'Failed to delete todo');
       throw error;

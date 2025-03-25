@@ -17,7 +17,7 @@ export function TodoItem({ todo, onToggle, onDelete }: TodoItemProps) {
         className={styles.checkbox}
       />
       <p className={`${styles.title} ${todo.is_complete ? styles.completed : ''}`}>
-        {todo.title}
+        {todo.title + (todo.id.startsWith('temp_') ? ' *' : '')}
       </p>
       <button
         onClick={() => onDelete(todo.id)}

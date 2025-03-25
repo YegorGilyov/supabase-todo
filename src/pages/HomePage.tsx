@@ -19,6 +19,7 @@ export function HomePage() {
         </button>
       </div>
       <TodoList />
+      <TodoList />
     </div>
   );
 } 
