@@ -1,31 +1,44 @@
 import { type Todo } from '../types/todo';
-import styles from '../styles/TodoItem.module.css';
+import { Checkbox, Button, Typography } from 'antd';
+import { DeleteOutlined } from '@ant-design/icons';
+
+const { Text } = Typography;
 
 interface TodoItemProps {
   todo: Todo;
-  onToggle: (id: string, isComplete: boolean) => void;
-  onDelete: (id: string) => void;
+  onToggle: (isComplete: boolean) => void;
+  onDelete: () => void;
 }
 
 export function TodoItem({ todo, onToggle, onDelete }: TodoItemProps) {
   return (
-    <div className={styles.todoItem}>
-      <input
-        type="checkbox"
+    <div style={{ 
+      display: 'flex',
+      alignItems: 'center',
+      padding: '12px 24px',
+      width: '100%',
+      borderBottom: '1px solid #f0f0f0'
+    }}>
+      <Checkbox
         checked={todo.is_complete}
-        onChange={(e) => onToggle(todo.id, e.target.checked)}
-        className={styles.checkbox}
+        onChange={(e) => onToggle(e.target.checked)}
       />
-      <p className={`${styles.title} ${todo.is_complete ? styles.completed : ''}`}>
-        {todo.title + (todo.id.startsWith('temp_') ? ' *' : '')}
-      </p>
-      <button
-        onClick={() => onDelete(todo.id)}
-        className={styles.deleteButton}
-        aria-label="Delete todo"
+      <Text
+        style={{
+          margin: '0 12px',
+          flex: 1,
+          textDecoration: todo.is_complete ? 'line-through' : 'none',
+          color: todo.is_complete ? '#00000040' : undefined
+        }}
       >
-        ×
-      </button>
+        {todo.title}
+      </Text>
+      <Button
+        type="text"
+        icon={<DeleteOutlined />}
+        onClick={onDelete}
+        danger
+      />
     </div>
   );
 } 

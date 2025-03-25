@@ -1,50 +1,62 @@
-import { useState, FormEvent } from 'react';
+import { useState } from 'react';
 import { TodoItem } from './TodoItem';
 import { useTodos } from '../hooks/useTodos';
-import styles from '../styles/TodoList.module.css';
+import { Card, Input, Button, List, Spin, Space } from 'antd';
+import { PlusOutlined } from '@ant-design/icons';
 
 export function TodoList() {
-  const { todos, loading, addTodo, toggleTodo, deleteTodo } = useTodos();
+  const { todos, isLoading, addTodo, toggleTodo, deleteTodo } = useTodos();
   const [newTodoTitle, setNewTodoTitle] = useState('');
 
-  const handleSubmit = async (e: FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newTodoTitle.trim()) return;
 
-    await addTodo({ title: newTodoTitle.trim() });
+    addTodo({ title: newTodoTitle.trim() });
     setNewTodoTitle('');
   };
 
-  if (loading) {
-    return <div>Loading...</div>;
+  if (isLoading) {
+    return (
+      <div style={{ textAlign: 'center', padding: '48px' }}>
+        <Spin size="large" />
+      </div>
+    );
   }
 
   return (
-    <div className={styles.container}>
-      <form onSubmit={handleSubmit} className={styles.form}>
-        <input
-          type="text"
-          value={newTodoTitle}
-          onChange={(e) => setNewTodoTitle(e.target.value)}
-          placeholder="What needs to be done?"
-          className={styles.input}
-        />
-        <button type="submit" className={styles.button}>
-          Add Todo
-        </button>
+    <Card>
+      <form onSubmit={handleSubmit} style={{ marginBottom: 24 }}>
+        <Space.Compact style={{ width: '100%' }}>
+          <Input
+            value={newTodoTitle}
+            onChange={(e) => setNewTodoTitle(e.target.value)}
+            placeholder="What needs to be done?"
+            size="large"
+          />
+          <Button
+            type="primary"
+            icon={<PlusOutlined />}
+            onClick={handleSubmit}
+            size="large"
+          >
+            Add
+          </Button>
+        </Space.Compact>
       </form>
 
-      <ul className={styles.list}>
-        {todos.map((todo) => (
-          <li key={todo.id}>
+      <List
+        dataSource={todos}
+        renderItem={(todo) => (
+          <List.Item style={{ padding: 0, border: 'none' }}>
             <TodoItem
               todo={todo}
-              onToggle={toggleTodo}
-              onDelete={deleteTodo}
+              onToggle={(isComplete) => toggleTodo({ id: todo.id, isComplete })}
+              onDelete={() => deleteTodo(todo.id)}
             />
-          </li>
-        ))}
-      </ul>
-    </div>
+          </List.Item>
+        )}
+      />
+    </Card>
   );
 } 

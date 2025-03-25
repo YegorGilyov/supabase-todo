@@ -1,25 +1,44 @@
 import { useAuth } from '../hooks/useAuth';
 import { TodoList } from '../components/TodoList';
-import styles from '../styles/HomePage.module.css';
+import { Layout, Button, Typography, theme } from 'antd';
+import { LogoutOutlined } from '@ant-design/icons';
+
+const { Header, Content } = Layout;
+const { Title } = Typography;
 
 export function HomePage() {
   const { user, signOut } = useAuth();
+  const { token } = theme.useToken();
 
   return (
-    <div className={styles.container}>
-      <div className={styles.header}>
-        <h1 className={styles.title}>
+    <Layout style={{ minHeight: '100vh' }}>
+      <Header style={{ 
+        background: token.colorBgContainer,
+        padding: '0 24px',
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+      }}>
+        <Title level={4} style={{ margin: 0 }}>
           Welcome, {user?.email}!
-        </h1>
-        <button
+        </Title>
+        <Button 
+          icon={<LogoutOutlined />}
           onClick={signOut}
-          className={styles.signOutButton}
+          type="text"
         >
           Sign Out
-        </button>
-      </div>
-      <TodoList />
-      <TodoList />
-    </div>
+        </Button>
+      </Header>
+      <Content style={{ 
+        padding: '24px',
+        maxWidth: '800px',
+        width: '100%',
+        margin: '0 auto'
+      }}>
+        <TodoList />
+      </Content>
+    </Layout>
   );
 } 
