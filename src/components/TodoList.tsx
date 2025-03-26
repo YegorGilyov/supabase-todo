@@ -3,11 +3,13 @@ import { Table, Button, Checkbox, Space, Typography, Tag } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { DeleteOutlined } from '@ant-design/icons';
 import type { Todo } from '../types/todo';
+import './TodoList.css';
 
 interface TodoListProps {
   todos: Todo[];
   onToggleTodo: (id: string, isComplete: boolean) => void;
   onDeleteTodo: (id: string) => void;
+  onEditTodo: (id: string, title: string) => void;
   isLoading: boolean;
 }
 
@@ -25,6 +27,7 @@ export const TodoList: React.FC<TodoListProps> = ({
   todos,
   onToggleTodo,
   onDeleteTodo,
+  onEditTodo,
   isLoading
 }) => {
   // Transform todos into tree structure
@@ -81,7 +84,18 @@ export const TodoList: React.FC<TodoListProps> = ({
           return <Typography.Text strong>{text}</Typography.Text>;
         }
         return (
-          <Typography.Text delete={record.is_complete}>
+          <Typography.Text
+            className="editable-cell"
+            delete={record.is_complete}
+            editable={{
+              onChange: (value) => onEditTodo(record.id, value),
+              text,
+              enterIcon: null,
+              tooltip: null,
+              triggerType: ['icon'],
+              autoSize: { minRows: 1, maxRows: 1 }
+            }}
+          >
             {text}
           </Typography.Text>
         );
@@ -124,7 +138,7 @@ export const TodoList: React.FC<TodoListProps> = ({
       rowKey="key"
       loading={isLoading}
       pagination={false}
-      size="middle"
+      size="small"
       expandable={{
         defaultExpandedRowKeys: ['incomplete', 'complete'],
       }}

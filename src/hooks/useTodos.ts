@@ -140,6 +140,31 @@ export function useTodos() {
     onError: (_err, _id, context) => handleMutationError(context)
   });
 
+  // Edit todo mutation
+  const editMutation = useMutation({
+    mutationFn: async ({ id, title }: { id: string; title: string }) => {
+      await setupMutation();
+      const { data, error } = await supabase
+        .from('todos')
+        .update({ title })
+        .eq('id', id)
+        .eq('user_id', user!.id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data as Todo;
+    },
+    onMutate: async ({ id, title }) => {
+      const previousTodos = await setupMutation();
+      updateCache(old => 
+        old.map(todo => todo.id === id ? { ...todo, title } : todo)
+      );
+      return { previousTodos };
+    },
+    onError: (_err, _variables, context) => handleMutationError(context)
+  });
+
   // Helper for filtering out existing or temporary todos
   const filterExistingTodo = useCallback((todos: Todo[], todoId: string, tempTitle: string | null = null) => 
     todos.filter(todo => 
@@ -208,5 +233,6 @@ export function useTodos() {
     addTodo: addMutation.mutate,
     toggleTodo: toggleMutation.mutate,
     deleteTodo: deleteMutation.mutate,
+    editTodo: editMutation.mutate,
   };
 } 

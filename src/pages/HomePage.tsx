@@ -8,7 +8,7 @@ const { Content } = Layout;
 const { Title } = Typography;
 
 export function HomePage() {
-  const { todos, isLoading, addTodo, toggleTodo, deleteTodo } = useTodos();
+  const { todos, isLoading, addTodo, toggleTodo, deleteTodo, editTodo } = useTodos();
 
   return (
     <Content style={{ padding: '24px', maxWidth: 800, margin: '0 auto' }}>
@@ -22,6 +22,7 @@ export function HomePage() {
             todos={todos}
             onToggleTodo={(id, isComplete) => toggleTodo({ id, isComplete })}
             onDeleteTodo={deleteTodo}
+            onEditTodo={(id, title) => editTodo({ id, title })}
             isLoading={isLoading}
           />
         </div>
