@@ -1,78 +1,62 @@
+import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { useAuth } from './hooks/useAuth';
+import { ConfigProvider, theme } from 'antd';
+import { AuthProvider } from './contexts/AuthContext';
 import { HomePage } from './pages/HomePage';
 import { AuthPage } from './pages/AuthPage';
-import { ConfigProvider, App as AntApp, theme } from 'antd';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
-import { Spin } from 'antd';
-
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      staleTime: 1000 * 60 * 5, // 5 minutes
-      refetchOnWindowFocus: false,
-    },
-  },
-});
+import { PrivateRoute } from './components/PrivateRoute';
+import { useAuthContext } from './contexts/AuthContext';
 
 // Configure future flags for React Router v7
-const router = {
+const routerOptions = {
   future: {
     v7_startTransition: true,
     v7_relativeSplatPath: true
   }
 };
 
-// Configure Ant Design theme
-const antTheme = {
-  token: {
-    colorPrimary: '#646cff',
-    borderRadius: 8,
-    fontFamily: 'Inter, system-ui, Avenir, Helvetica, Arial, sans-serif',
-  },
-  algorithm: theme.defaultAlgorithm,
-};
+// Auth guard for the auth page
+function AuthGuard({ children }: { children: React.ReactNode }) {
+  const { user, loading } = useAuthContext();
+  
+  if (loading) return null;
+  if (user) return <Navigate to="/" replace />;
+  return <>{children}</>;
+}
 
 function App() {
-  const { user, loading } = useAuth();
-
-  if (loading) {
-    return (
-      <ConfigProvider theme={antTheme}>
-        <AntApp>
-          <div style={{ 
-            height: '100vh', 
-            display: 'flex', 
-            justifyContent: 'center', 
-            alignItems: 'center' 
-          }}>
-            <Spin size="large" />
-          </div>
-        </AntApp>
-      </ConfigProvider>
-    );
-  }
-
   return (
-    <ConfigProvider theme={antTheme}>
-      <AntApp>
-        <QueryClientProvider client={queryClient}>
-          <Router {...router}>
-            <Routes>
-              <Route
-                path="/"
-                element={user ? <HomePage /> : <Navigate to="/auth" replace />}
-              />
-              <Route
-                path="/auth"
-                element={!user ? <AuthPage /> : <Navigate to="/" replace />}
-              />
-            </Routes>
-          </Router>
-          <ReactQueryDevtools initialIsOpen={false} />
-        </QueryClientProvider>
-      </AntApp>
+    <ConfigProvider
+      theme={{
+        algorithm: theme.defaultAlgorithm,
+        token: {
+          colorPrimary: '#1677ff',
+          borderRadius: 6,
+        },
+      }}
+    >
+      <Router {...routerOptions}>
+        <AuthProvider>
+          <Routes>
+            <Route 
+              path="/auth" 
+              element={
+                <AuthGuard>
+                  <AuthPage />
+                </AuthGuard>
+              } 
+            />
+            <Route
+              path="/"
+              element={
+                <PrivateRoute>
+                  <HomePage />
+                </PrivateRoute>
+              }
+            />
+          </Routes>
+        </AuthProvider>
+      </Router>
     </ConfigProvider>
   );
 }

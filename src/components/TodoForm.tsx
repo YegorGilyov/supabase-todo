@@ -1,22 +1,19 @@
-import React, { useState } from 'react';
-import { Input, Button, Space, Form } from 'antd';
+import { Form, Input, Button, Space } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
-import type { NewTodo } from '../types/todo';
+import { useTodoContext } from '../contexts/TodoContext';
 
-interface TodoFormProps {
-  onAddTodo: (todo: NewTodo) => void;
-}
-
-export const TodoForm: React.FC<TodoFormProps> = ({ onAddTodo }) => {
+export function TodoForm() {
   const [form] = Form.useForm();
+  const { addTodo } = useTodoContext();
 
-  const handleSubmit = async () => {
+  const handleSubmit = async ({ title }: { title: string }) => {
+    if (!title.trim()) return;
+    
     try {
-      const values = await form.validateFields();
-      onAddTodo({ title: values.title.trim() });
+      await addTodo({ title: title.trim() });
       form.resetFields();
     } catch (error) {
-      // Form validation error, no need to handle
+      console.error('Failed to add todo:', error);
     }
   };
 
@@ -36,8 +33,8 @@ export const TodoForm: React.FC<TodoFormProps> = ({ onAddTodo }) => {
           />
           <Button
             type="primary"
-            icon={<PlusOutlined />}
             htmlType="submit"
+            icon={<PlusOutlined />}
             size="large"
           >
             Add
@@ -46,4 +43,4 @@ export const TodoForm: React.FC<TodoFormProps> = ({ onAddTodo }) => {
       </Form.Item>
     </Form>
   );
-}; 
+} 

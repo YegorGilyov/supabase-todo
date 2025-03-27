@@ -1,22 +1,22 @@
 import { useState } from 'react';
-import { useAuth } from '../hooks/useAuth';
-import { Card, Form, Input, Button, Typography, Alert } from 'antd';
+import { useAuthContext } from '../contexts/AuthContext';
+import { Card, Form, Input, Button, Typography, Alert, message } from 'antd';
 import { UserOutlined, LockOutlined } from '@ant-design/icons';
 
 const { Title } = Typography;
 
-interface AuthFormValues {
+interface AuthFormData {
   email: string;
   password: string;
 }
 
 export function Auth() {
-  const { signIn, signUp } = useAuth();
+  const { signIn, signUp } = useAuthContext();
   const [isLogin, setIsLogin] = useState(true);
   const [error, setError] = useState('');
   const [form] = Form.useForm();
 
-  const handleSubmit = async (values: AuthFormValues) => {
+  const handleSubmit = async (values: AuthFormData) => {
     setError('');
 
     try {
@@ -26,12 +26,22 @@ export function Auth() {
         await signUp(values.email, values.password);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred');
+      if (err instanceof Error && err.message.includes('Invalid login credentials')) {
+        try {
+          await signUp(values.email, values.password);
+        } catch (signUpError) {
+          message.error('Failed to create account. Please try again.');
+          console.error('Sign up error:', signUpError);
+        }
+      } else {
+        message.error('Authentication failed. Please try again.');
+        console.error('Auth error:', err);
+      }
     }
   };
 
   return (
-    <Card style={{ width: 400, maxWidth: '100%' }}>
+    <Card style={{ width: '100%', maxWidth: 400 }}>
       <Title level={2} style={{ textAlign: 'center', marginBottom: 24 }}>
         {isLogin ? 'Sign In' : 'Sign Up'}
       </Title>
@@ -47,6 +57,7 @@ export function Auth() {
 
       <Form
         form={form}
+        name="auth"
         onFinish={handleSubmit}
         layout="vertical"
         requiredMark={false}

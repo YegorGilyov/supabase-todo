@@ -1,61 +1,27 @@
-import React, { useMemo } from 'react';
+import { useMemo } from 'react';
 import { Table, Button, Checkbox, Space, Typography, Tag } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { DeleteOutlined } from '@ant-design/icons';
 import type { Todo } from '../types/todo';
-import './TodoList.css';
+import { useTodoContext } from '../contexts/TodoContext';
+import '../styles/TodoList.css';
 
-interface TodoListProps {
-  todos: Todo[];
-  onToggleTodo: (id: string, isComplete: boolean) => void;
-  onDeleteTodo: (id: string) => void;
-  onEditTodo: (id: string, title: string) => void;
-  isLoading: boolean;
-}
+type TodoWithKey = Todo & { key: string };
 
 type TodoGroup = {
   key: 'incomplete' | 'complete';
   title: string;
-  children: (Todo & { key: string })[];
+  children: TodoWithKey[];
 };
 
 const GROUP_HEADER_STYLE = {
   backgroundColor: '#f5f5f5'
 };
 
-export const TodoList: React.FC<TodoListProps> = ({
-  todos,
-  onToggleTodo,
-  onDeleteTodo,
-  onEditTodo,
-  isLoading
-}) => {
-  // Transform todos into tree structure
-  const treeData: TodoGroup[] = useMemo(() => {
-    const incompleteTodos = todos.filter(todo => !todo.is_complete);
-    const completeTodos = todos.filter(todo => todo.is_complete);
+export function TodoList() {
+  const { todos, isLoading, toggleTodo, deleteTodo, editTodo } = useTodoContext();
 
-    return [
-      {
-        key: 'incomplete',
-        title: 'Incomplete',
-        children: incompleteTodos.map(todo => ({
-          ...todo,
-          key: todo.id
-        }))
-      },
-      {
-        key: 'complete',
-        title: 'Complete',
-        children: completeTodos.map(todo => ({
-          ...todo,
-          key: todo.id
-        }))
-      }
-    ];
-  }, [todos]);
-
-  const columns: ColumnsType<TodoGroup | (Todo & { key: string })> = [
+  const columns: ColumnsType<TodoWithKey | TodoGroup> = [
     {
       title: 'Status',
       dataIndex: 'is_complete',
@@ -71,7 +37,7 @@ export const TodoList: React.FC<TodoListProps> = ({
         return (
           <Checkbox
             checked={isComplete}
-            onChange={(e) => onToggleTodo(record.id, e.target.checked)}
+            onChange={(e) => toggleTodo({ id: record.id, isComplete: e.target.checked })}
           />
         );
       },
@@ -88,10 +54,10 @@ export const TodoList: React.FC<TodoListProps> = ({
             className="editable-cell"
             delete={record.is_complete}
             editable={{
-              onChange: (value) => onEditTodo(record.id, value),
+              onChange: (value) => editTodo({ id: record.id, title: value }),
               text,
               enterIcon: null,
-              tooltip: null,
+              tooltip: 'Click to edit',
               triggerType: ['icon'],
               autoSize: { minRows: 1, maxRows: 1 }
             }}
@@ -122,7 +88,7 @@ export const TodoList: React.FC<TodoListProps> = ({
               type="text"
               danger
               icon={<DeleteOutlined />}
-              onClick={() => onDeleteTodo(record.id)}
+              onClick={() => deleteTodo(record.id)}
               aria-label="Delete todo"
             />
           </Space>
@@ -131,14 +97,31 @@ export const TodoList: React.FC<TodoListProps> = ({
     },
   ];
 
+  const groupedTodos = useMemo(() => {
+    const incomplete = todos.filter(todo => !todo.is_complete);
+    const complete = todos.filter(todo => todo.is_complete);
+
+    return [
+      {
+        key: 'incomplete',
+        title: 'Incomplete',
+        children: incomplete.map(todo => ({ ...todo, key: todo.id })),
+      },
+      {
+        key: 'complete',
+        title: 'Complete',
+        children: complete.map(todo => ({ ...todo, key: todo.id })),
+      },
+    ] as TodoGroup[];
+  }, [todos]);
+
   return (
     <Table
-      dataSource={treeData}
       columns={columns}
-      rowKey="key"
+      dataSource={groupedTodos}
       loading={isLoading}
       pagination={false}
-      size="small"
+      size="middle"
       expandable={{
         defaultExpandedRowKeys: ['incomplete', 'complete'],
       }}
@@ -148,4 +131,4 @@ export const TodoList: React.FC<TodoListProps> = ({
       className="todo-list-table"
     />
   );
-}; 
+} 

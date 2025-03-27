@@ -1,32 +1,39 @@
-import React from 'react';
-import { Layout, Typography, Card } from 'antd';
+import { Layout, Typography, Card, Button } from 'antd';
+import { LogoutOutlined } from '@ant-design/icons';
 import { TodoList } from '../components/TodoList';
 import { TodoForm } from '../components/TodoForm';
-import { useTodos } from '../hooks/useTodos';
+import { useAuthContext } from '../contexts/AuthContext';
+import { TodoProvider } from '../contexts/TodoContext';
 
 const { Content } = Layout;
 const { Title } = Typography;
 
 export function HomePage() {
-  const { todos, isLoading, addTodo, toggleTodo, deleteTodo, editTodo } = useTodos();
+  const { signOut } = useAuthContext();
 
   return (
-    <Content style={{ padding: '24px', maxWidth: 800, margin: '0 auto' }}>
-      <Title level={2} style={{ textAlign: 'center', marginBottom: 24 }}>
-        Todo List
-      </Title>
-      <Card>
-        <TodoForm onAddTodo={addTodo} />
-        <div style={{ marginTop: 24 }}>
-          <TodoList
-            todos={todos}
-            onToggleTodo={(id, isComplete) => toggleTodo({ id, isComplete })}
-            onDeleteTodo={deleteTodo}
-            onEditTodo={(id, title) => editTodo({ id, title })}
-            isLoading={isLoading}
-          />
+    <TodoProvider>
+      <Content style={{ padding: '24px', maxWidth: 800, margin: '0 auto' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+          <Title level={2} style={{ margin: 0 }}>
+            Todo List
+          </Title>
+          <Button 
+            icon={<LogoutOutlined />}
+            onClick={signOut}
+            type="text"
+            size="large"
+          >
+            Logout
+          </Button>
         </div>
-      </Card>
-    </Content>
+        <Card>
+          <TodoForm />
+          <div style={{ marginTop: 24 }}>
+            <TodoList />
+          </div>
+        </Card>
+      </Content>
+    </TodoProvider>
   );
 } 
