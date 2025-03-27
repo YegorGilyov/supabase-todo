@@ -1,4 +1,4 @@
-import { type Todo } from '../types/todo';
+import { type Todo } from '../types/models/todo';
 import { Checkbox, Button, Typography } from 'antd';
 import { DeleteOutlined } from '@ant-design/icons';
 

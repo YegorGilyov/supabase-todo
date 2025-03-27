@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useCallback, useEffect, useRef, useState } from 'react';
 import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
-import type { Todo, NewTodo } from '../types/todo';
+import type { Todo, NewTodo } from '../types/models/todo';
 import { useAuthContext } from './AuthContext';
 
 // Helper for optimistic todo creation

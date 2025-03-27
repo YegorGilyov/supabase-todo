@@ -1,45 +1,28 @@
-import { Form, Input, Button, Space } from 'antd';
-import { PlusOutlined } from '@ant-design/icons';
-import { useTodoContext } from '../contexts/TodoContext';
+import { Button, Form, Input } from 'antd';
+import { useEntity } from '../contexts/RegistryContext';
 
 export function TodoForm() {
   const [form] = Form.useForm();
-  const { addTodo } = useTodoContext();
+  const { addTodo } = useEntity('todos');
 
   const handleSubmit = async ({ title }: { title: string }) => {
-    if (!title.trim()) return;
-    
-    try {
-      await addTodo({ title: title.trim() });
-      form.resetFields();
-    } catch (error) {
-      console.error('Failed to add todo:', error);
-    }
+    await addTodo(title);
+    form.resetFields();
   };
 
   return (
-    <Form form={form} onFinish={handleSubmit}>
+    <Form form={form} onFinish={handleSubmit} layout="inline" style={{ marginBottom: '20px' }}>
       <Form.Item
         name="title"
-        rules={[
-          { required: true, message: 'Please enter a todo' },
-          { whitespace: true, message: 'Todo cannot be empty' }
-        ]}
+        rules={[{ required: true, message: 'Please enter a todo title' }]}
+        style={{ flex: 1 }}
       >
-        <Space.Compact style={{ width: '100%' }}>
-          <Input
-            placeholder="What needs to be done?"
-            size="large"
-          />
-          <Button
-            type="primary"
-            htmlType="submit"
-            icon={<PlusOutlined />}
-            size="large"
-          >
-            Add
-          </Button>
-        </Space.Compact>
+        <Input placeholder="What needs to be done?" />
+      </Form.Item>
+      <Form.Item>
+        <Button type="primary" htmlType="submit">
+          Add Todo
+        </Button>
       </Form.Item>
     </Form>
   );

@@ -2,8 +2,8 @@ import { useMemo } from 'react';
 import { Table, Button, Checkbox, Space, Typography, Tag } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { DeleteOutlined } from '@ant-design/icons';
-import type { Todo } from '../types/todo';
-import { useTodoContext } from '../contexts/TodoContext';
+import type { Todo } from '../types/models/todo';
+import { useEntity } from '../contexts/RegistryContext';
 import '../styles/TodoList.css';
 
 type TodoWithKey = Todo & { key: string };
@@ -19,14 +19,18 @@ const GROUP_HEADER_STYLE = {
 };
 
 export function TodoList() {
-  const { todos, isLoading, toggleTodo, deleteTodo, editTodo } = useTodoContext();
+  const { todos, isLoading, error, deleteTodo: onDelete, editTodo: onEdit, toggleTodo: onToggle } = useEntity('todos');
+
+  if (error) {
+    return <Typography.Text type="danger">{error.message}</Typography.Text>;
+  }
 
   const columns: ColumnsType<TodoWithKey | TodoGroup> = [
     {
       title: 'Status',
       dataIndex: 'is_complete',
       width: '80px',
-      render: (isComplete: boolean | undefined, record) => {
+      render: (_, record) => {
         if ('children' in record) {
           return (
             <Tag color={record.key === 'incomplete' ? 'error' : 'success'}>
@@ -36,8 +40,8 @@ export function TodoList() {
         }
         return (
           <Checkbox
-            checked={isComplete}
-            onChange={(e) => toggleTodo({ id: record.id, isComplete: e.target.checked })}
+            checked={record.is_complete}
+            onChange={() => onToggle(record.id)}
           />
         );
       },
@@ -52,14 +56,11 @@ export function TodoList() {
         return (
           <Typography.Text
             className="editable-cell"
-            delete={record.is_complete}
             editable={{
-              onChange: (value) => editTodo({ id: record.id, title: value }),
+              onChange: (value) => onEdit(record.id, value),
               text,
               enterIcon: null,
               tooltip: 'Click to edit',
-              triggerType: ['icon'],
-              autoSize: { minRows: 1, maxRows: 1 }
             }}
           >
             {text}
@@ -88,7 +89,7 @@ export function TodoList() {
               type="text"
               danger
               icon={<DeleteOutlined />}
-              onClick={() => deleteTodo(record.id)}
+              onClick={() => onDelete(record.id)}
               aria-label="Delete todo"
             />
           </Space>
