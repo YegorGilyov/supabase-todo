@@ -72,7 +72,7 @@ export function CategoriesPage() {
                 </Typography.Link>,
               ]}
             >
-              <List.Item.Meta title={category.title} />
+              <List.Item.Meta title={category.title} />{category.id}
             </List.Item>
           )}
         />
