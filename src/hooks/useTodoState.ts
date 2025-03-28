@@ -1,11 +1,19 @@
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
-import { Todo } from '../types/models/todo';
+import { Todo, TodoWithCategories } from '../types/models/todo';
 import { User } from '@supabase/supabase-js';
 import { TodoContextValue } from '../types/contexts/registry';
+import { Category } from '../types/models/category';
+
+// Type to represent the raw data structure from Supabase
+interface TodoFromDB extends Todo {
+  categories: {
+    categories: Category;
+  }[];
+}
 
 export function useTodoState(user: User | null): TodoContextValue {
-  const [todos, setTodos] = useState<Todo[]>([]);
+  const [todos, setTodos] = useState<TodoWithCategories[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
@@ -19,13 +27,28 @@ export function useTodoState(user: User | null): TodoContextValue {
 
     const loadTodos = async () => {
       try {
-        const { data, error } = await supabase
+        // Load todos with their categories in a single query
+        const { data: todosData, error: todosError } = await supabase
           .from('todos')
-          .select('*')
+          .select(`
+            *,
+            categories:todo_categories(
+              categories(*)
+            )
+          `)
           .order('created_at', { ascending: false });
 
-        if (error) throw error;
-        setTodos(data);
+        if (todosError) throw todosError;
+
+        // Transform the nested data structure into our TodoWithCategories format
+        const todosWithCategories = (todosData as TodoFromDB[]).map(todo => ({
+          ...todo,
+          categories: todo.categories?.map(tc => tc.categories) ?? []
+        }));
+
+        console.log("Loading todos", todosWithCategories);
+
+        setTodos(todosWithCategories);
       } catch (e) {
         setError(e as Error);
       } finally {
@@ -41,7 +64,7 @@ export function useTodoState(user: User | null): TodoContextValue {
     if (!user) return;
 
     const channel = supabase
-      .channel('todos')
+      .channel('todos-with-categories')
       .on(
         'postgres_changes',
         {
@@ -53,31 +76,149 @@ export function useTodoState(user: User | null): TodoContextValue {
         (payload) => {
           switch (payload.eventType) {
             case 'INSERT':
-              // Only add if it's not our optimistic update
-              if (!todos.some(todo => todo.id.startsWith('temp-'))) {
-                setTodos(current => [payload.new as Todo, ...current]);
-              } else {
-                // Replace optimistic todo with real one
-                setTodos(current => 
-                  current.map(todo => 
-                    todo.id.startsWith('temp-') ? payload.new as Todo : todo
-                  )
+              setTodos(current => {
+                if (!current.some(todo => todo.id.startsWith('temp-'))) {
+                  console.log("Real-time update: inserting new todo", payload.new);
+                  return [{
+                    ...(payload.new as Todo),
+                    categories: []
+                  } as TodoWithCategories, ...current];
+                }
+                console.log("Real-time update: updating temporary todo", payload.new);
+                return current.map(todo => 
+                  todo.id.startsWith('temp-') ? {
+                    ...(payload.new as Todo),
+                    categories: todo.categories
+                  } as TodoWithCategories : todo
                 );
-              }
+              });
               break;
             case 'DELETE':
+              console.log("Real-time update: deleting todo", payload.old);
               setTodos(current => 
                 current.filter(todo => todo.id !== payload.old.id)
               );
               break;
             case 'UPDATE':
+              console.log("Real-time update: updating todo", payload.new);
               setTodos(current =>
                 current.map(todo =>
-                  todo.id === payload.new.id ? payload.new as Todo : todo
+                  todo.id === payload.new.id ? {
+                    ...(payload.new as Todo),
+                    categories: todo.categories
+                  } : todo
                 )
               );
               break;
           }
+        }
+      )
+      // Listen for todo_categories changes
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'todo_categories',
+        },
+        async (payload) => {
+          switch (payload.eventType) {
+            case 'INSERT': {
+              const categoryId = payload.new.category_id;
+              const todoId = payload.new.todo_id;
+              
+              console.log("Real-time update: adding category to todo", payload.new);
+
+              // First check if we already have this category in any todo
+              setTodos(current => {
+                const category = current
+                  .flatMap(t => t.categories)
+                  .find(c => c.id === categoryId);
+
+                if (category) {
+                  return current.map(todo =>
+                    todo.id === todoId ? {
+                      ...todo,
+                      categories: todo.categories.some(c => c.id === category.id)
+                        ? todo.categories
+                        : [...todo.categories, category]
+                    } : todo
+                  );
+                }
+
+                // If category not found, we'll fetch it separately
+                return current;
+              });
+
+              // If we didn't find the category in existing todos, fetch it
+              const existingCategory = todos
+                .flatMap(t => t.categories)
+                .find(c => c.id === categoryId);
+
+              if (!existingCategory) {
+                const { data: category, error } = await supabase
+                  .from('categories')
+                  .select('*')
+                  .eq('id', categoryId)
+                  .single();
+
+                if (!error && category) {
+                  setTodos(current =>
+                    current.map(todo =>
+                      todo.id === todoId ? {
+                        ...todo,
+                        categories: todo.categories.some(c => c.id === category.id)
+                          ? todo.categories
+                          : [...todo.categories, category]
+                      } : todo
+                    )
+                  );
+                }
+              }
+              break;
+            }
+            case 'DELETE': {
+              const categoryId = payload.old.category_id;
+              const todoId = payload.old.todo_id;
+              
+              console.log("Real-time update: deleting category from todo", payload.old);
+
+              setTodos(current =>
+                current.map(todo =>
+                  todo.id === todoId ? {
+                    ...todo,
+                    categories: todo.categories.filter(c => c.id !== categoryId)
+                  } : todo
+                )
+              );
+              break;
+            }
+          }
+        }
+      )
+      // Listen for category updates (e.g., renaming)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'categories',
+        },
+        (payload) => {
+          const updatedCategory = payload.new as Category;
+          
+          console.log("Real-time update: updating category in todos", updatedCategory);
+
+          setTodos(current =>
+            current.map(todo => ({
+              ...todo,
+              categories: todo.categories.map(category =>
+                category.id === updatedCategory.id
+                  ? updatedCategory
+                  : category
+              )
+            }))
+          );
         }
       )
       .subscribe();
@@ -85,21 +226,21 @@ export function useTodoState(user: User | null): TodoContextValue {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user, todos]);
+  }, [user]);
 
-  const addTodo = useCallback(async (title: string) => {
+  const addTodo = async (title: string) => {
     if (!user) throw new Error('User not authenticated');
 
-    // Optimistic update
     const tempId = 'temp-' + Date.now();
     const now = new Date().toISOString();
-    const optimisticTodo: Todo = {
+    const optimisticTodo: TodoWithCategories = {
       id: tempId,
       title,
       is_complete: false,
       user_id: user.id,
       created_at: now,
-      updated_at: now
+      updated_at: now,
+      categories: []
     };
 
     setTodos(current => [optimisticTodo, ...current]);
@@ -111,79 +252,132 @@ export function useTodoState(user: User | null): TodoContextValue {
 
       if (error) throw error;
     } catch (e) {
-      // Rollback on error
       setTodos(current => current.filter(t => t.id !== tempId));
       setError(e as Error);
     }
-  }, [user]);
+  };
 
-  const deleteTodo = useCallback(async (id: string) => {
-    // Optimistic update
+  const deleteTodo = async (id: string) => {
     const previousTodos = [...todos];
+    
     setTodos(current => current.filter(todo => todo.id !== id));
 
-    try {
-      const { error } = await supabase
-        .from('todos')
-        .delete()
-        .eq('id', id);
+    const { error } = await supabase
+      .from('todos')
+      .delete()
+      .eq('id', id);
 
-      if (error) throw error;
-    } catch (e) {
-      // Rollback on error
+    if (error) {
       setTodos(previousTodos);
-      setError(e as Error);
+      setError(error);
     }
-  }, [todos]);
+  };
 
-  const editTodo = useCallback(async (id: string, title: string) => {
-    // Optimistic update
+  const editTodo = async (id: string, title: string) => {
     const previousTodos = [...todos];
-    setTodos(current =>
-      current.map(todo =>
-        todo.id === id ? { ...todo, title } : todo
-      )
-    );
+    
+    setTodos(current => current.map(todo => 
+      todo.id === id ? { ...todo, title } : todo
+    ));
 
-    try {
-      const { error } = await supabase
-        .from('todos')
-        .update({ title })
-        .eq('id', id);
+    const { error } = await supabase
+      .from('todos')
+      .update({ title })
+      .eq('id', id);
 
-      if (error) throw error;
-    } catch (e) {
-      // Rollback on error
+    if (error) {
       setTodos(previousTodos);
-      setError(e as Error);
+      setError(error);
     }
-  }, [todos]);
+  };
 
-  const toggleTodo = useCallback(async (id: string) => {
+  const toggleTodo = async (id: string) => {
     const todo = todos.find(t => t.id === id);
     if (!todo) throw new Error('Todo not found');
 
-    // Optimistic update
     const previousTodos = [...todos];
-    setTodos(current =>
-      current.map(t =>
-        t.id === id ? { ...t, is_complete: !t.is_complete } : t
-      )
-    );
+    
+    setTodos(current => current.map(t =>
+      t.id === id ? { ...t, is_complete: !t.is_complete } : t
+    ));
 
-    try {
-      const { error } = await supabase
-        .from('todos')
-        .update({ is_complete: !todo.is_complete })
-        .eq('id', id);
+    const { error } = await supabase
+      .from('todos')
+      .update({ is_complete: !todo.is_complete })
+      .eq('id', id);
 
-      if (error) throw error;
-    } catch (e) {
-      // Rollback on error
+    if (error) {
       setTodos(previousTodos);
-      setError(e as Error);
+      setError(error);
     }
-  }, [todos]);
+  };
+
+  const addTodoToCategory = async (todoId: string, categoryId: string) => {
+    const todo = todos.find(t => t.id === todoId);
+    if (!todo) throw new Error('Todo not found');
+    
+    if (todo.categories?.some(c => c.id === categoryId)) {
+      return;
+    }
+
+    const previousTodos = [...todos];
+    
+    let category = todos
+      .flatMap(t => t.categories ?? [])
+      .find(c => c.id === categoryId);
+    
+    if (!category) {
+      const { data: fetchedCategory, error: fetchError } = await supabase
+        .from('categories')
+        .select('*')
+        .eq('id', categoryId)
+        .single();
+
+      if (fetchError || !fetchedCategory) {
+        setError(fetchError || new Error('Category not found'));
+        return;
+      }
+
+      category = fetchedCategory;
+    }
+
+    setTodos(current => current.map(t =>
+      t.id === todoId ? {
+        ...t,
+        categories: [...t.categories, category!]
+      } : t
+    ));
+
+    const { error } = await supabase
+      .from('todo_categories')
+      .insert([{ todo_id: todoId, category_id: categoryId }]);
+
+    if (error) {
+      setTodos(previousTodos);
+      setError(error);
+    }
+  };
+
+  const removeTodoFromCategory = async (todoId: string, categoryId: string) => {
+    const previousTodos = [...todos];
+    
+    setTodos(current => current.map(todo =>
+      todo.id === todoId ? {
+        ...todo,
+        categories: todo.categories.filter(c => c.id !== categoryId)
+      } : todo
+    ));
+
+    const { error } = await supabase
+      .from('todo_categories')
+      .delete()
+      .match({ todo_id: todoId, category_id: categoryId });
+
+    if (error) {
+      setTodos(previousTodos);
+      setError(error);
+    }
+  };
 
   return {
     todos,
@@ -193,5 +387,7 @@ export function useTodoState(user: User | null): TodoContextValue {
     deleteTodo,
     editTodo,
     toggleTodo,
+    addTodoToCategory,
+    removeTodoFromCategory,
   };
 } 

@@ -4,17 +4,20 @@ import { RegistryProvider } from '../contexts/RegistryContext';
 import { useTodoState } from '../hooks/useTodoState';
 import { useCategoryState } from '../hooks/useCategoryState';
 import { useAuthContext } from '../contexts/AuthContext';
+import { useMemo } from 'react';
 
-export function ProtectedLayout() {
-  const { user } = useAuthContext();
+function AuthenticatedContent({ user }: { user: NonNullable<ReturnType<typeof useAuthContext>['user']> }) {
   const { pathname } = useLocation();
+  
+  // Initialize states only when we have a user
   const todoState = useTodoState(user);
   const categoryState = useCategoryState(user);
 
-  const value = {
+  // Memoize the registry value
+  const value = useMemo(() => ({
     todos: todoState,
     categories: categoryState,
-  };
+  }), [todoState, categoryState]);
 
   return (
     <RegistryProvider value={value}>
@@ -42,4 +45,13 @@ export function ProtectedLayout() {
       </Layout>
     </RegistryProvider>
   );
+}
+
+export function ProtectedLayout() {
+  const { user, loading } = useAuthContext();
+
+  if (loading) return null;
+  if (!user) return null;
+
+  return <AuthenticatedContent user={user} />;
 } 

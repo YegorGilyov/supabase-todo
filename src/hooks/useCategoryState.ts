@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { Category } from '../types/models/category';
 import { User } from '@supabase/supabase-js';
@@ -19,12 +19,15 @@ export function useCategoryState(user: User | null): CategoryContextValue {
 
     const loadCategories = async () => {
       try {
-        const { data, error } = await supabase
+        const { data, error: categoriesError } = await supabase
           .from('categories')
           .select('*')
           .order('created_at', { ascending: false });
 
-        if (error) throw error;
+        if (categoriesError) throw categoriesError;
+
+        console.log("Loading categories", data);
+
         setCategories(data);
       } catch (e) {
         setError(e as Error);
@@ -53,24 +56,25 @@ export function useCategoryState(user: User | null): CategoryContextValue {
         (payload) => {
           switch (payload.eventType) {
             case 'INSERT':
-              // Only add if it's not our optimistic update
-              if (!categories.some(category => category.id.startsWith('temp-'))) {
-                setCategories(current => [payload.new as Category, ...current]);
-              } else {
-                // Replace optimistic category with real one
-                setCategories(current => 
-                  current.map(category => 
-                    category.id.startsWith('temp-') ? payload.new as Category : category
-                  )
+              setCategories(current => {
+                if (!current.some(category => category.id.startsWith('temp-'))) {
+                  console.log("Real-time update: inserting new category", payload.new);
+                  return [payload.new as Category, ...current];
+                }
+                console.log("Real-time update: updating temporary category", payload.new);
+                return current.map(category => 
+                  category.id.startsWith('temp-') ? payload.new as Category : category
                 );
-              }
+              });
               break;
             case 'DELETE':
+              console.log("Real-time update: deleting category", payload.old);
               setCategories(current => 
                 current.filter(category => category.id !== payload.old.id)
               );
               break;
             case 'UPDATE':
+              console.log("Real-time update: updating category", payload.new);
               setCategories(current =>
                 current.map(category =>
                   category.id === payload.new.id ? payload.new as Category : category
@@ -85,12 +89,11 @@ export function useCategoryState(user: User | null): CategoryContextValue {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user, categories]);
+  }, [user]);
 
-  const addCategory = useCallback(async (title: string) => {
+  const addCategory = async (title: string) => {
     if (!user) throw new Error('User not authenticated');
 
-    // Optimistic update
     const tempId = 'temp-' + Date.now();
     const now = new Date().toISOString();
     const optimisticCategory: Category = {
@@ -110,53 +113,44 @@ export function useCategoryState(user: User | null): CategoryContextValue {
 
       if (error) throw error;
     } catch (e) {
-      // Rollback on error
       setCategories(current => current.filter(c => c.id !== tempId));
       setError(e as Error);
     }
-  }, [user]);
+  };
 
-  const deleteCategory = useCallback(async (id: string) => {
-    // Optimistic update
+  const deleteCategory = async (id: string) => {
     const previousCategories = [...categories];
+    
     setCategories(current => current.filter(category => category.id !== id));
 
-    try {
-      const { error } = await supabase
-        .from('categories')
-        .delete()
-        .eq('id', id);
+    const { error } = await supabase
+      .from('categories')
+      .delete()
+      .eq('id', id);
 
-      if (error) throw error;
-    } catch (e) {
-      // Rollback on error
+    if (error) {
       setCategories(previousCategories);
-      setError(e as Error);
+      setError(error);
     }
-  }, [categories]);
+  };
 
-  const editCategory = useCallback(async (id: string, title: string) => {
-    // Optimistic update
+  const editCategory = async (id: string, title: string) => {
     const previousCategories = [...categories];
-    setCategories(current =>
-      current.map(category =>
-        category.id === id ? { ...category, title } : category
-      )
-    );
+    
+    setCategories(current => current.map(category =>
+      category.id === id ? { ...category, title } : category
+    ));
 
-    try {
-      const { error } = await supabase
-        .from('categories')
-        .update({ title })
-        .eq('id', id);
+    const { error } = await supabase
+      .from('categories')
+      .update({ title })
+      .eq('id', id);
 
-      if (error) throw error;
-    } catch (e) {
-      // Rollback on error
+    if (error) {
       setCategories(previousCategories);
-      setError(e as Error);
+      setError(error);
     }
-  }, [categories]);
+  };
 
   return {
     categories,

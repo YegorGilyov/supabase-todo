@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import { User } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 
@@ -13,29 +13,37 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | null>(null);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [state, setState] = useState<{ user: User | null; loading: boolean }>({
+    user: null,
+    loading: true
+  });
 
   useEffect(() => {
-    // Get initial user
-    supabase.auth.getUser()
-      .then(({ data: { user } }) => setUser(user))
-      .catch((error) => {
-        // If it's just a missing session, we don't need to log the error
-        if (error.message !== 'Auth session missing!') {
-          console.error('Auth error:', error);
-        }
-        setUser(null);
-      })
-      .finally(() => setLoading(false));
+    let isInitialSessionLoaded = false;
+
+    // Get initial session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      isInitialSessionLoaded = true;
+      setState({
+        user: session?.user ?? null,
+        loading: false
+      });
+    });
 
     // Subscribe to auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_, session) => {
-      setUser(session?.user ?? null);
-      setLoading(false);
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      // Only update if we've loaded the initial session and this isn't the initial event
+      if (isInitialSessionLoaded && event !== 'INITIAL_SESSION') {
+        setState({
+          user: session?.user ?? null,
+          loading: false
+        });
+      }
     });
     
-    return () => subscription.unsubscribe();
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
   const signIn = async (email: string, password: string) => {
@@ -45,7 +53,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         password,
       });
       if (error) throw error;
-      setUser(data.user);
       return { user: data.user, error: null };
     } catch (error) {
       console.error('Sign in error:', error);
@@ -60,7 +67,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         password,
       });
       if (error) throw error;
-      setUser(data.user);
       return { user: data.user, error: null };
     } catch (error) {
       console.error('Sign up error:', error);
@@ -72,20 +78,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
-      setUser(null);
     } catch (error) {
       console.error('Sign out error:', error);
       throw error;
     }
   };
 
-  const value = {
-    user,
-    loading,
+  const value = useMemo(() => ({
+    user: state.user,
+    loading: state.loading,
     signIn,
     signUp,
     signOut,
-  };
+  }), [state.user, state.loading]);
 
   return (
     <AuthContext.Provider value={value}>

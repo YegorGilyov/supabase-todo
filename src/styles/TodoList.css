@@ -26,4 +26,24 @@
   line-height: 38px !important;
   font-size: inherit !important;
   border: 1px solid red !important;
+}
+
+/* Category styles */
+.todo-list-table .ant-tag {
+  margin: 2px !important;
+}
+
+.todo-list-table .ant-tag:hover {
+  opacity: 0.8;
+}
+
+.todo-list-table .ant-space {
+  flex-wrap: wrap;
+  gap: 4px !important;
+}
+
+.todo-list-table .ant-btn-text {
+  padding: 0 4px !important;
+  height: 22px !important;
+  min-width: 22px !important;
 } 

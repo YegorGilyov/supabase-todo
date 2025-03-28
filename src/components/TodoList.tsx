@@ -1,12 +1,12 @@
 import { useMemo } from 'react';
-import { Table, Button, Checkbox, Space, Typography, Tag } from 'antd';
+import { Table, Button, Checkbox, Space, Typography, Tag, Popover } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import { DeleteOutlined } from '@ant-design/icons';
-import type { Todo } from '../types/models/todo';
+import { DeleteOutlined, PlusOutlined } from '@ant-design/icons';
+import type { TodoWithCategories } from '../types/models/todo';
 import { useEntity } from '../contexts/RegistryContext';
 import '../styles/TodoList.css';
 
-type TodoWithKey = Todo & { key: string };
+type TodoWithKey = TodoWithCategories & { key: string };
 
 type TodoGroup = {
   key: 'incomplete' | 'complete';
@@ -19,7 +19,8 @@ const GROUP_HEADER_STYLE = {
 };
 
 export function TodoList() {
-  const { todos, isLoading, error, deleteTodo: onDelete, editTodo: onEdit, toggleTodo: onToggle } = useEntity('todos');
+  const { todos, isLoading, error, deleteTodo: onDelete, editTodo: onEdit, toggleTodo: onToggle, addTodoToCategory, removeTodoFromCategory } = useEntity('todos');
+  const { categories } = useEntity('categories');
 
   if (error) {
     return <Typography.Text type="danger">{error.message}</Typography.Text>;
@@ -65,6 +66,59 @@ export function TodoList() {
           >
             {text}
           </Typography.Text>
+        );
+      },
+    },
+    {
+      title: 'Categories',
+      key: 'categories',
+      render: (_, record) => {
+        if ('children' in record) return null;
+        
+        const availableCategories = categories.filter(
+          cat => !record.categories.some(c => c.id === cat.id)
+        );
+
+        const addCategoryContent = (
+          <div style={{ maxWidth: 200 }}>
+            {availableCategories.length > 0 ? (
+              <Space wrap>
+                {availableCategories.map(category => (
+                  <Tag
+                    key={category.id}
+                    style={{ cursor: 'pointer' }}
+                    onClick={() => addTodoToCategory(record.id, category.id)}
+                  >
+                    + {category.title}
+                  </Tag>
+                ))}
+              </Space>
+            ) : (
+              <Typography.Text type="secondary">No more categories available</Typography.Text>
+            )}
+          </div>
+        );
+
+        return (
+          <Space wrap>
+            {record.categories.map(category => (
+              <Tag
+                key={category.id}
+                closable
+                onClose={() => removeTodoFromCategory(record.id, category.id)}
+              >
+                {category.title}
+              </Tag>
+            ))}
+            <Popover
+              content={addCategoryContent}
+              title="Add category"
+              trigger="click"
+              placement="bottom"
+            >
+              <Button type="text" size="small" icon={<PlusOutlined />} />
+            </Popover>
+          </Space>
         );
       },
     },
