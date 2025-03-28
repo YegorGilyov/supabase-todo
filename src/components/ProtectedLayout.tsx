@@ -1,30 +1,35 @@
 import { Outlet, Link, useLocation } from 'react-router-dom';
-import { Layout, Menu } from 'antd';
-import { RegistryProvider } from '../contexts/RegistryContext';
-import { useTodoState } from '../hooks/useTodoState';
-import { useCategoryState } from '../hooks/useCategoryState';
+import { Layout, Menu, Button } from 'antd';
+import { LogoutOutlined } from '@ant-design/icons';
 import { useAuthContext } from '../contexts/AuthContext';
-import { useMemo } from 'react';
+import { RegistryProvider } from '../contexts/RegistryContext';
+import { useCategoryState } from '../hooks/useCategoryState';
+import { useTodoState } from '../hooks/useTodoState';
 
-function AuthenticatedContent({ user }: { user: NonNullable<ReturnType<typeof useAuthContext>['user']> }) {
+export function ProtectedLayout() {
+  const { signOut, user } = useAuthContext();
   const { pathname } = useLocation();
-  
-  // Initialize states only when we have a user
-  const todoState = useTodoState(user);
   const categoryState = useCategoryState(user);
+  const todoState = useTodoState(user);
 
-  // Memoize the registry value
-  const value = useMemo(() => ({
-    todos: todoState,
+  const value = {
     categories: categoryState,
-  }), [todoState, categoryState]);
+    todos: todoState,
+  };
 
   return (
     <RegistryProvider value={value}>
       <Layout style={{ minHeight: '100vh' }}>
-        <Layout.Header>
+        <Layout.Header style={{ 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center', 
+          padding: '0 24px',
+          background: '#fff',
+          borderBottom: '1px solid #f0f0f0'
+        }}>
           <Menu
-            theme="dark"
+            style={{ flex: 1, border: 'none' }}
             mode="horizontal"
             selectedKeys={[pathname === '/' ? 'todos' : 'categories']}
             items={[
@@ -38,6 +43,12 @@ function AuthenticatedContent({ user }: { user: NonNullable<ReturnType<typeof us
               },
             ]}
           />
+          <Button 
+            icon={<LogoutOutlined />}
+            onClick={signOut}
+          >
+            Logout
+          </Button>
         </Layout.Header>
         <Layout.Content>
           <Outlet />
@@ -45,13 +56,4 @@ function AuthenticatedContent({ user }: { user: NonNullable<ReturnType<typeof us
       </Layout>
     </RegistryProvider>
   );
-}
-
-export function ProtectedLayout() {
-  const { user, loading } = useAuthContext();
-
-  if (loading) return null;
-  if (!user) return null;
-
-  return <AuthenticatedContent user={user} />;
 } 

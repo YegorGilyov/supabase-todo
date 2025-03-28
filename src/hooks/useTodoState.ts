@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { Todo, TodoWithCategories } from '../types/models/todo';
 import { User } from '@supabase/supabase-js';

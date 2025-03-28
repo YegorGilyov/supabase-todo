@@ -1,5 +1,5 @@
-import { useMemo } from 'react';
-import { Table, Button, Checkbox, Space, Typography, Tag, Popover } from 'antd';
+import { useMemo, useState } from 'react';
+import { Table, Button, Checkbox, Space, Typography, Tag, Popover, Input, App } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { DeleteOutlined, PlusOutlined } from '@ant-design/icons';
 import type { TodoWithCategories } from '../types/models/todo';
@@ -19,12 +19,77 @@ const GROUP_HEADER_STYLE = {
 };
 
 export function TodoList() {
-  const { todos, isLoading, error, deleteTodo: onDelete, editTodo: onEdit, toggleTodo: onToggle, addTodoToCategory, removeTodoFromCategory } = useEntity('todos');
+  const { todos, isLoading, error, deleteTodo: onDelete, editTodo: onEdit, toggleTodo: onToggle, addTodoToCategory, removeTodoFromCategory, addTodo } = useEntity('todos');
   const { categories } = useEntity('categories');
+  const { message } = App.useApp();
+  const [newTodoTitle, setNewTodoTitle] = useState('');
 
   if (error) {
     return <Typography.Text type="danger">{error.message}</Typography.Text>;
   }
+
+  const handleAddTodo = () => {
+    if (!newTodoTitle.trim()) {
+      message.error('Todo title cannot be empty');
+      return;
+    }
+    
+    // Update UI immediately
+    const title = newTodoTitle.trim();
+    setNewTodoTitle('');
+    
+    // Fire and forget - the state will be updated optimistically
+    addTodo(title)
+      .then(() => message.success('Todo added successfully'))
+      .catch(() => {
+        message.error('Failed to add todo');
+      });
+  };
+
+  const handleEdit = (id: string, value: string) => {
+    if (!value.trim()) {
+      message.error('Todo title cannot be empty');
+      return;
+    }
+
+    onEdit(id, value)
+      .then(() => message.success('Todo updated successfully'))
+      .catch(() => {
+        message.error('Failed to update todo');
+      });
+  };
+
+  const handleToggle = (id: string) => {
+    onToggle(id)
+      .then(() => message.success('Todo status updated successfully'))
+      .catch(() => {
+        message.error('Failed to update todo status');
+      });
+  };
+
+  const handleDelete = (id: string) => {
+    onDelete(id)
+      .then(() => message.success('Todo deleted successfully'))
+      .catch(() => {
+        message.error('Failed to delete todo');
+      });
+  };
+
+  const handleAddCategory = (todoId: string, categoryId: string) => {
+    addTodoToCategory(todoId, categoryId)
+      .then(() => message.success('Category added to todo successfully'))
+      .catch(() => {
+        message.error('Failed to add category to todo');
+      });
+  };
+
+  const handleRemoveCategory = (todoId: string, categoryId: string) => {
+    removeTodoFromCategory(todoId, categoryId)
+      .then(() => message.success('Category removed from todo successfully'))
+      .catch(() => {
+        message.error('Failed to remove category from todo');
+      });
+  };
 
   const columns: ColumnsType<TodoWithKey | TodoGroup> = [
     {
@@ -42,7 +107,7 @@ export function TodoList() {
         return (
           <Checkbox
             checked={record.is_complete}
-            onChange={() => onToggle(record.id)}
+            onChange={() => handleToggle(record.id)}
           />
         );
       },
@@ -58,7 +123,7 @@ export function TodoList() {
           <Typography.Text
             className="editable-cell"
             editable={{
-              onChange: (value) => onEdit(record.id, value),
+              onChange: (value) => handleEdit(record.id, value),
               text,
               enterIcon: null,
               tooltip: 'Click to edit',
@@ -87,7 +152,7 @@ export function TodoList() {
                   <Tag
                     key={category.id}
                     style={{ cursor: 'pointer' }}
-                    onClick={() => addTodoToCategory(record.id, category.id)}
+                    onClick={() => handleAddCategory(record.id, category.id)}
                   >
                     + {category.title}
                   </Tag>
@@ -105,7 +170,7 @@ export function TodoList() {
               <Tag
                 key={category.id}
                 closable
-                onClose={() => removeTodoFromCategory(record.id, category.id)}
+                onClose={() => handleRemoveCategory(record.id, category.id)}
               >
                 {category.title}
               </Tag>
@@ -143,7 +208,7 @@ export function TodoList() {
               type="text"
               danger
               icon={<DeleteOutlined />}
-              onClick={() => onDelete(record.id)}
+              onClick={() => handleDelete(record.id)}
               aria-label="Delete todo"
             />
           </Space>
@@ -171,19 +236,31 @@ export function TodoList() {
   }, [todos]);
 
   return (
-    <Table
-      columns={columns}
-      dataSource={groupedTodos}
-      loading={isLoading}
-      pagination={false}
-      size="middle"
-      expandable={{
-        defaultExpandedRowKeys: ['incomplete', 'complete'],
-      }}
-      onRow={(record) => ({
-        style: 'children' in record ? GROUP_HEADER_STYLE : {}
-      })}
-      className="todo-list-table"
-    />
+    <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+      <div style={{ padding: '16px', borderBottom: '1px solid #f0f0f0' }}>
+        <Input.Search
+          placeholder="Add a new todo"
+          value={newTodoTitle}
+          onChange={(e) => setNewTodoTitle(e.target.value)}
+          onSearch={handleAddTodo}
+          enterButton="Add"
+        />
+      </div>
+      <Table
+        columns={columns}
+        dataSource={groupedTodos}
+        loading={isLoading}
+        pagination={false}
+        size="middle"
+        expandable={{
+          defaultExpandedRowKeys: ['incomplete', 'complete'],
+        }}
+        onRow={(record) => ({
+          style: 'children' in record ? GROUP_HEADER_STYLE : {}
+        })}
+        className="todo-list-table"
+        style={{ flex: 1, overflow: 'auto' }}
+      />
+    </div>
   );
 } 

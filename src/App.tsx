@@ -1,6 +1,6 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
-import { ConfigProvider, theme } from 'antd';
+import { ConfigProvider, theme, App as AntApp } from 'antd';
 import { AuthProvider } from './contexts/AuthContext';
 import { HomePage } from './pages/HomePage';
 import { AuthPage } from './pages/AuthPage';
@@ -32,30 +32,32 @@ function App() {
         algorithm: theme.defaultAlgorithm,
       }}
     >
-      <AuthProvider>
-        <Router {...routerOptions}>
-          <Routes>
-            <Route
-              path="/auth"
-              element={
-                <PublicRoute>
-                  <AuthPage />
-                </PublicRoute>
-              }
-            />
-            <Route
-              element={
-                <PrivateRoute>
-                  <ProtectedLayout />
-                </PrivateRoute>
-              }
-            >
-              <Route path="/" element={<HomePage />} />
-              <Route path="/categories" element={<CategoriesPage />} />
-            </Route>
-          </Routes>
-        </Router>
-      </AuthProvider>
+      <AntApp>
+        <AuthProvider>
+          <Router {...routerOptions}>
+            <Routes>
+              <Route
+                path="/auth"
+                element={
+                  <PublicRoute>
+                    <AuthPage />
+                  </PublicRoute>
+                }
+              />
+              <Route
+                element={
+                  <PrivateRoute>
+                    <ProtectedLayout />
+                  </PrivateRoute>
+                }
+              >
+                <Route path="/" element={<HomePage />} />
+                <Route path="/categories" element={<CategoriesPage />} />
+              </Route>
+            </Routes>
+          </Router>
+        </AuthProvider>
+      </AntApp>
     </ConfigProvider>
   );
 }
