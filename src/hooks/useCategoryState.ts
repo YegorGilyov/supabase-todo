@@ -9,6 +9,23 @@ export function useCategoryState(user: User | null): CategoryContextValue {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
+  const loadCategories = async () => {
+    try {
+      const { data, error: categoriesError } = await supabase
+        .from('categories')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (categoriesError) throw categoriesError;
+
+      setCategories(data);
+    } catch (e) {
+      setError(e as Error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   // Initial data load
   useEffect(() => {
     if (!user) {
@@ -16,26 +33,7 @@ export function useCategoryState(user: User | null): CategoryContextValue {
       setIsLoading(false);
       return;
     }
-
-    const loadCategories = async () => {
-      try {
-        const { data, error: categoriesError } = await supabase
-          .from('categories')
-          .select('*')
-          .order('created_at', { ascending: false });
-
-        if (categoriesError) throw categoriesError;
-
-        console.log("Loading categories", data);
-
-        setCategories(data);
-      } catch (e) {
-        setError(e as Error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
+    console.log("Initial data load: categories");
     loadCategories();
   }, [user]);
 
@@ -53,35 +51,9 @@ export function useCategoryState(user: User | null): CategoryContextValue {
           table: 'categories',
           filter: `user_id=eq.${user.id}`,
         },
-        (payload) => {
-          switch (payload.eventType) {
-            case 'INSERT':
-              setCategories(current => {
-                if (!current.some(category => category.id.startsWith('temp-'))) {
-                  console.log("Real-time update: inserting new category", payload.new);
-                  return [payload.new as Category, ...current];
-                }
-                console.log("Real-time update: updating temporary category", payload.new);
-                return current.map(category => 
-                  category.id.startsWith('temp-') ? payload.new as Category : category
-                );
-              });
-              break;
-            case 'DELETE':
-              console.log("Real-time update: deleting category", payload.old);
-              setCategories(current => 
-                current.filter(category => category.id !== payload.old.id)
-              );
-              break;
-            case 'UPDATE':
-              console.log("Real-time update: updating category", payload.new);
-              setCategories(current =>
-                current.map(category =>
-                  category.id === payload.new.id ? payload.new as Category : category
-                )
-              );
-              break;
-          }
+        () => {
+          console.log("Reloading categories on categories table change");
+          loadCategories();
         }
       )
       .subscribe();

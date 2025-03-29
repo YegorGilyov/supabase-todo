@@ -5,8 +5,8 @@ import { useEntity } from '../contexts/RegistryContext';
 
 export function Categories() {
   const { categories, addCategory, editCategory, deleteCategory } = useEntity('categories');
+  const { categoryFilter, setCategoryFilter } = useEntity('todos');
   const { message, modal } = App.useApp();
-  const [selectedKeys, setSelectedKeys] = useState<string[]>([]);
   const [isAddModalVisible, setIsAddModalVisible] = useState(false);
   const [isEditModalVisible, setIsEditModalVisible] = useState(false);
   const [categoryTitle, setCategoryTitle] = useState('');
@@ -61,7 +61,13 @@ export function Categories() {
       onOk: () => {
         // Fire and forget - the state will be updated optimistically
         deleteCategory(category.id)
-          .then(() => message.success('Category deleted successfully'))
+          .then(() => {
+            message.success('Category deleted successfully');
+            // If we're deleting the currently filtered category, clear the filter
+            if (categoryFilter === category.id) {
+              setCategoryFilter(null);
+            }
+          })
           .catch(() => {
             message.error('Failed to delete category');
           });
@@ -111,8 +117,8 @@ export function Categories() {
   ];
 
   return (
-    <div style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-      <div style={{ padding: '16px', borderBottom: '1px solid #f0f0f0', flexShrink: 0 }}>
+    <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+      <div style={{ padding: '16px', borderBottom: '1px solid #f0f0f0' }}>
         <Button
           type="primary"
           icon={<PlusOutlined />}
@@ -122,14 +128,14 @@ export function Categories() {
           Add Category
         </Button>
       </div>
-      <div style={{ flex: 1, overflow: 'auto' }}>
-        <Menu
-          mode="inline"
-          selectedKeys={selectedKeys}
-          onSelect={({ selectedKeys }) => setSelectedKeys(selectedKeys as string[])}
-          items={menuItems}
-        />
-      </div>
+      <Menu
+        mode="inline"
+        selectedKeys={categoryFilter ? [categoryFilter] : []}
+        onSelect={({ selectedKeys }) => setCategoryFilter(selectedKeys[0])}
+        onDeselect={() => setCategoryFilter(null)}
+        style={{ flex: 1, overflow: 'auto' }}
+        items={menuItems}
+      />
 
       <Modal
         title="Add Category"

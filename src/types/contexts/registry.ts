@@ -11,6 +11,8 @@ export interface TodoContextValue {
   toggleTodo: (id: string) => Promise<void>;
   addTodoToCategory: (todoId: string, categoryId: string) => Promise<void>;
   removeTodoFromCategory: (todoId: string, categoryId: string) => Promise<void>;
+  categoryFilter: string | null;
+  setCategoryFilter: (categoryId: string | null) => void;
 }
 
 export interface CategoryContextValue {
