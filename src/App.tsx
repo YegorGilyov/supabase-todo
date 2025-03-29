@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Link, Navigate } from 'react-router-dom';
 import { ConfigProvider, theme, App as AntApp } from 'antd';
 import { AuthProvider } from './contexts/AuthContext';
 import { HomePage } from './pages/HomePage';
@@ -21,7 +21,7 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuthContext();
 
   if (loading) return null;
-  if (user) return <Link to="/" />;
+  if (user) return <Navigate to="/" replace />;
   return <>{children}</>;
 }
 

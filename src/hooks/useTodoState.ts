@@ -4,7 +4,7 @@ import { Todo, TodoWithCategories } from '../types/models/todo';
 import { User } from '@supabase/supabase-js';
 import { TodoContextValue } from '../types/contexts/registry';
 import { Category } from '../types/models/category';
-import { RealtimePostgresChangesPayload, RealtimeChannel } from '@supabase/supabase-js';
+import { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 
 // Type to represent the raw data structure from Supabase
 interface TodoFromDB extends Todo {
@@ -136,7 +136,7 @@ export function useTodoState(user: User | null): TodoContextValue {
       )
       .subscribe();
 
-    const todoCategoriesChannel = supabase
+    const todoCategoriesChannel = supabase // DOESN'T CATCH DELETE EVENTS
       .channel('todo-categories')
       .on(
         'postgres_changes',
@@ -146,7 +146,8 @@ export function useTodoState(user: User | null): TodoContextValue {
           table: 'todo_categories'
         },
         async (payload: RealtimePostgresChangesPayload<{ todo_id: string }>) => {
-          const record = payload.new || payload.old;
+
+          const record = payload.eventType === 'DELETE' ? payload.old : payload.new;
           if (!record) return;
           
           const todoId = (record as { todo_id: string }).todo_id;
